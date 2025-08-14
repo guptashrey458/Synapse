@@ -45,7 +45,7 @@ class ValidatedEntity(Entity):
         """Validate delivery ID format."""
         if self.normalized_value:
             # Expect format like DEL123456 or similar
-            if not re.match(r'^[A-Z]{2,4}\d{4,8}$', self.normalized_value):
+            if not re.match(r'^[A-Z]{2,4}\d{3,8}$', self.normalized_value):
                 raise ValidationError(f"Invalid delivery ID format: {self.normalized_value}")
     
     def _validate_phone_number(self) -> None:
@@ -146,7 +146,7 @@ class EntityExtractor:
     """Utility class for extracting entities from text."""
     
     # Regex patterns for entity extraction
-    DELIVERY_ID_PATTERN = re.compile(r'\b([A-Z]{2,4}\d{4,8})\b')
+    DELIVERY_ID_PATTERN = re.compile(r'\b([A-Z]{2,4}\d{3,8})\b')
     PHONE_PATTERN = re.compile(r'\b(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})\b')
     ADDRESS_PATTERN = re.compile(r'\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Drive|Dr|Lane|Ln|Way|Court|Ct)\b', re.IGNORECASE)
     

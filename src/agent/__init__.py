@@ -13,6 +13,9 @@ from .models import (
     ValidatedResolutionPlan, ValidatedResolutionResult
 )
 
+from .autonomous_agent import AutonomousAgent, AgentConfig, AgentState
+from .scenario_analyzer import ScenarioAnalyzer, ToolRecommendation, ScenarioAnalysis, ToolPriority
+
 __all__ = [
     # Interfaces
     'Agent', 'UrgencyLevel', 'ScenarioType', 'EntityType', 'Entity',
@@ -23,5 +26,11 @@ __all__ = [
     'ValidatedEntity', 'ValidatedDisruptionScenario', 'EntityExtractor',
     'ValidationError', 'ToolAction', 'ToolResult', 'ValidatedReasoningStep',
     'ValidatedReasoningTrace', 'ValidatedPlanStep', 'AlternativePlan',
-    'ValidatedResolutionPlan', 'ValidatedResolutionResult'
+    'ValidatedResolutionPlan', 'ValidatedResolutionResult',
+    
+    # Autonomous agent
+    'AutonomousAgent', 'AgentConfig', 'AgentState',
+    
+    # Scenario analysis
+    'ScenarioAnalyzer', 'ToolRecommendation', 'ScenarioAnalysis', 'ToolPriority'
 ]
