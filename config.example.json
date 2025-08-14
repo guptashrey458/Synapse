@@ -1,0 +1,49 @@
+{
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-4",
+    "api_key": "your-openai-api-key-here",
+    "base_url": null,
+    "max_tokens": 4000,
+    "temperature": 0.1,
+    "timeout": 30,
+    "max_retries": 3
+  },
+  "tools": {
+    "traffic_api": {
+      "enabled": true,
+      "timeout": 10,
+      "max_retries": 2,
+      "cache_results": true,
+      "cache_ttl": 300,
+      "api_key": "your-traffic-api-key"
+    },
+    "communication": {
+      "enabled": true,
+      "timeout": 5,
+      "max_retries": 3,
+      "cache_results": false,
+      "sms_provider": "twilio",
+      "email_provider": "sendgrid"
+    },
+    "merchant_api": {
+      "enabled": true,
+      "timeout": 15,
+      "max_retries": 2,
+      "cache_results": true,
+      "cache_ttl": 180
+    }
+  },
+  "reasoning": {
+    "max_steps": 20,
+    "confidence_threshold": 0.8,
+    "enable_chain_of_thought": true,
+    "enable_debugging": false
+  },
+  "cli": {
+    "verbose": false,
+    "output_format": "structured",
+    "show_reasoning": true,
+    "show_timing": false
+  }
+}
