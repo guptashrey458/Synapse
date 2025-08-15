@@ -69,6 +69,10 @@ class CLIApplication:
             from ..tools.traffic_tools import CheckTrafficTool, ReRouteDriverTool
             from ..tools.communication_tools import NotifyCustomerTool
             from ..tools.merchant_tools import GetMerchantStatusTool
+            from ..tools.mediation_tools import (
+                InitiateMediationFlowTool, CollectEvidenceTool, AnalyzeEvidenceTool,
+                IssueInstantRefundTool, ExonerateDriverTool, LogMerchantPackagingFeedbackTool
+            )
             
             # Register traffic tools
             self.tool_manager.register_tool(CheckTrafficTool())
@@ -79,6 +83,14 @@ class CLIApplication:
             
             # Register merchant tools
             self.tool_manager.register_tool(GetMerchantStatusTool())
+            
+            # Register mediation tools
+            self.tool_manager.register_tool(InitiateMediationFlowTool())
+            self.tool_manager.register_tool(CollectEvidenceTool())
+            self.tool_manager.register_tool(AnalyzeEvidenceTool())
+            self.tool_manager.register_tool(IssueInstantRefundTool())
+            self.tool_manager.register_tool(ExonerateDriverTool())
+            self.tool_manager.register_tool(LogMerchantPackagingFeedbackTool())
             
         except ImportError as e:
             # If specific tools aren't available, create mock tools

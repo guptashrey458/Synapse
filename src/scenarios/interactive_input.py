@@ -277,6 +277,12 @@ class InteractiveScenarioTester:
                         execution_time=0.5
                     )
             
+            # Import mediation tools
+            from ..tools.mediation_tools import (
+                InitiateMediationFlowTool, CollectEvidenceTool, AnalyzeEvidenceTool,
+                IssueInstantRefundTool, ExonerateDriverTool, LogMerchantPackagingFeedbackTool
+            )
+            
             # Register all tools with error handling
             tools_to_register = [
                 MockTrafficTool(),
@@ -285,7 +291,14 @@ class InteractiveScenarioTester:
                 MockAddressTool(),
                 MockDeliveryStatusTool(),
                 MockRouteDriverTool(),
-                MockEscalateTool()
+                MockEscalateTool(),
+                # Add mediation tools
+                InitiateMediationFlowTool(),
+                CollectEvidenceTool(),
+                AnalyzeEvidenceTool(),
+                IssueInstantRefundTool(),
+                ExonerateDriverTool(),
+                LogMerchantPackagingFeedbackTool()
             ]
             
             for tool in tools_to_register:

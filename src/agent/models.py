@@ -15,6 +15,53 @@ class ValidationError(Exception):
 
 
 @dataclass
+class BeliefState:
+    """Tracks what the agent believes to be true with confidence levels."""
+    beliefs: Dict[str, Any] = field(default_factory=dict)
+    confidences: Dict[str, float] = field(default_factory=dict)
+    last_updated: Dict[str, datetime] = field(default_factory=dict)
+    evidence_sources: Dict[str, List[str]] = field(default_factory=dict)
+    
+    def update_belief(self, key: str, value: Any, confidence: float, 
+                     evidence_source: str = "unknown"):
+        """Update a belief with new information."""
+        self.beliefs[key] = value
+        self.confidences[key] = max(0.0, min(1.0, confidence))
+        self.last_updated[key] = datetime.now()
+        
+        if key not in self.evidence_sources:
+            self.evidence_sources[key] = []
+        self.evidence_sources[key].append(evidence_source)
+    
+    def get_belief(self, key: str) -> Optional[Any]:
+        """Get a belief value."""
+        return self.beliefs.get(key)
+    
+    def get_confidence(self, key: str) -> float:
+        """Get confidence in a belief."""
+        return self.confidences.get(key, 0.0)
+    
+    def is_uncertain(self, key: str, threshold: float = 0.7) -> bool:
+        """Check if belief is below confidence threshold."""
+        return self.get_confidence(key) < threshold
+    
+    def get_uncertain_beliefs(self, threshold: float = 0.7) -> List[str]:
+        """Get all beliefs below confidence threshold."""
+        return [key for key, conf in self.confidences.items() if conf < threshold]
+    
+    def merge_beliefs(self, other_beliefs: Dict[str, Any], 
+                     other_confidences: Dict[str, float]):
+        """Merge beliefs from another source."""
+        for key, value in other_beliefs.items():
+            other_conf = other_confidences.get(key, 0.5)
+            current_conf = self.get_confidence(key)
+            
+            # Simple confidence-weighted merge
+            if other_conf > current_conf:
+                self.update_belief(key, value, other_conf, "merged_source")
+
+
+@dataclass
 class ValidatedEntity(Entity):
     """Enhanced Entity with validation methods."""
     

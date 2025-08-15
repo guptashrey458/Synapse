@@ -8,9 +8,10 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
 from .plan_generator import PlanGenerator
+from .htn import HTNPlanner, HTNPlan
 from ..agent.interfaces import ResolutionPlan, PlanStep
 from ..agent.interfaces import ScenarioType, UrgencyLevel
-from ..agent.models import ValidatedDisruptionScenario
+from ..agent.models import ValidatedDisruptionScenario, BeliefState
 from ..tools.interfaces import ToolResult
 
 
@@ -69,6 +70,36 @@ def _expand_for_breakers(steps: List["ActionStep"], open_breakers: List[str]) ->
             added = True
     return added
 
+def _extract_evidence_flags(tool_results: List[ToolResult]) -> Dict[str, bool]:
+    """Extract evidence flags from tool results for probability calculation."""
+    flags = {
+        "traffic_verified": False,
+        "route_changed": False,
+        "customer_notified": False,
+        "merchant_status_verified": False,
+        "alternatives_identified": False,
+        "address_verified": False,
+    }
+    for r in tool_results or []:
+        if not r.success:
+            continue
+        tn = (r.tool_name or "").lower()
+        if tn == "check_traffic":
+            # trust either explicit condition or delay field
+            cond = r.data.get("traffic_condition") or r.data.get("estimated_delay_minutes") is not None
+            flags["traffic_verified"] = bool(cond)
+        elif tn == "re_route_driver":
+            flags["route_changed"] = True
+        elif tn == "notify_customer":
+            flags["customer_notified"] = True
+        elif tn == "get_merchant_status":
+            flags["merchant_status_verified"] = True
+        elif tn == "get_nearby_merchants":
+            flags["alternatives_identified"] = (r.data.get("alternatives_count", 0) > 0)
+        elif tn == "validate_address":
+            flags["address_verified"] = bool(r.data.get("valid", True))
+    return flags
+
 def _ensure_min_steps(steps: List["ActionStep"], scenario_type: ScenarioType) -> None:
     floor = MIN_STEPS.get(scenario_type, 4)
     if len(steps) >= floor:
@@ -116,12 +147,14 @@ class EnhancedPlanGenerator(PlanGenerator):
     """
     
     def __init__(self):
-        """Initialize enhanced plan generator."""
+        """Initialize enhanced plan generator with HTN planning."""
         self.plan_templates = self._initialize_plan_templates()
         self.urgency_modifiers = self._initialize_urgency_modifiers()
         self.contingency_plans = self._initialize_contingency_plans()
+        self.htn_planner = HTNPlanner()
+        self.belief_state = BeliefState()
         
-        logger.info("Initialized EnhancedPlanGenerator with specific plan templates")
+        logger.info("Initialized EnhancedPlanGenerator with HTN planning and belief tracking")
     
     def _initialize_plan_templates(self) -> Dict[ScenarioType, Dict[str, Any]]:
         """Initialize specific plan templates for each scenario type."""
@@ -167,7 +200,7 @@ class EnhancedPlanGenerator(PlanGenerator):
                     "Provide comprehensive customer updates"
                 ],
                 "tools_required": ["escalate_to_support", "notify_customer", "validate_address"],
-                "success_probability_base": 0.75,
+                "success_probability_base": 0.85,
                 "estimated_duration_base": timedelta(minutes=45)
             }
         }
@@ -176,14 +209,14 @@ class EnhancedPlanGenerator(PlanGenerator):
         """Initialize urgency-based plan modifications."""
         return {
             UrgencyLevel.CRITICAL: {
-                "time_multiplier": 0.5,  # Faster execution
-                "probability_modifier": -0.1,  # Slightly lower due to time pressure
+                "time_multiplier": 0.5,
+                "probability_modifier": +0.05,
                 "additional_actions": ["Escalate to senior management", "Activate emergency protocols"],
                 "priority_boost": True
             },
             UrgencyLevel.HIGH: {
                 "time_multiplier": 0.7,
-                "probability_modifier": -0.05,
+                "probability_modifier": +0.03,
                 "additional_actions": ["Prioritize in queue", "Assign dedicated agent"],
                 "priority_boost": True
             },
@@ -195,7 +228,7 @@ class EnhancedPlanGenerator(PlanGenerator):
             },
             UrgencyLevel.LOW: {
                 "time_multiplier": 1.3,
-                "probability_modifier": 0.05,
+                "probability_modifier": 0.02,
                 "additional_actions": ["Schedule during off-peak hours"],
                 "priority_boost": False
             }
@@ -242,19 +275,49 @@ class EnhancedPlanGenerator(PlanGenerator):
                 tool_results = []
 
         logger.debug(f"Generating enhanced plan for {scenario.scenario_type.value} scenario")
+        
+        # Belief update
+        self._update_belief_state(tool_results)
 
         template = self.plan_templates.get(scenario.scenario_type, self._get_fallback_template())
         urgency_mods = self.urgency_modifiers[scenario.urgency_level]
 
-        # Base action steps
-        action_steps = self._generate_action_steps_enhanced(scenario, tool_results, template, urgency_mods)
+        # HTN (conditional) + template steps
+        htn_steps = []
+        if self._should_use_htn_planning(scenario):
+            htn_steps = self._generate_htn_plan(scenario, tool_results)
 
-        # ---- NEW: breaker-aware expansion + floors ------------------------------
-        open_breakers, key_missing_without_fallback, successful_tools = _summarize_tool_state(tool_results)
-        added_fallbacks = _expand_for_breakers(action_steps, open_breakers)
+        action_steps = self._generate_action_steps_enhanced(scenario, tool_results, template, urgency_mods)
+        if htn_steps:
+            seen = {self._norm(s.action) for s in action_steps}
+            merged = [s for s in htn_steps if self._norm(s.action) not in seen]
+            insert_at = 1 if action_steps else 0
+            action_steps[insert_at:insert_at] = merged
+
+        # Dedupe repeated actions
+        action_steps = self._dedupe_steps(action_steps)
+
+        # Optional: add early evidence collection for high-uncertainty beliefs
+        voi_tools = self._get_value_of_information_tools(scenario)
+        for t in voi_tools:
+            action_steps.insert(
+                min(3, len(action_steps)),
+                ActionStep(
+                    action=f"Collect high-value evidence via {t}",
+                    timeframe="3-6 minutes",
+                    responsible_party="System",
+                    specific_instructions=f"Execute {t} to reduce uncertainty on critical variables",
+                    success_criteria=f"{t} executed and belief updated",
+                    dependencies=["Immediate situation assessment and triage"]
+                )
+            )
+
+        # Enforce step floor early
         _ensure_min_steps(action_steps, scenario.scenario_type)
 
-        # Success probability (calibrated)
+        # Evidence-driven probability
+        flags = _extract_evidence_flags(tool_results)
+
         success_probability = self._calculate_enhanced_success_probability(
             template["success_probability_base"],
             urgency_mods["probability_modifier"],
@@ -262,15 +325,52 @@ class EnhancedPlanGenerator(PlanGenerator):
             len(action_steps)
         )
 
-        # Reward good planning signals; penalize breaker impact
-        if len(action_steps) >= MIN_STEPS.get(scenario.scenario_type, 4):
-            success_probability += 0.10  # met floor (increased reward)
-        if added_fallbacks:
-            success_probability += 0.10  # defined fallbacks when needed (increased reward)
-        success_probability -= 0.02 * len(open_breakers)  # reduced penalty
+        # Evidence bonuses (actual signals only)
+        evidence_bonus = 0.0
+        for k in ["merchant_status_verified", "traffic_verified", "route_changed", "customer_notified", "address_verified"]:
+            if flags.get(k):
+                evidence_bonus += 0.02  # up to +0.10
+        success_probability += min(0.10, evidence_bonus)
+
+        # Heuristic: planned-but-not-yet-confirmed evidence gets tiny credit
+        present_actions = {getattr(s, "action", "").lower() for s in action_steps}
+        planned_bonus = 0.0
+        if any("customer update" in a for a in present_actions):
+            planned_bonus += 0.015
+        if any("activate emergency protocols" in a for a in present_actions):
+            planned_bonus += 0.01
+        success_probability += min(0.035, planned_bonus)  # cap 0.035
+
+        # Breakers + fallbacks (lighter, but still penalize fragility)
+        open_breakers, key_missing_without_fallback, successful_tools = _summarize_tool_state(tool_results)
+        added_fallbacks = _expand_for_breakers(action_steps, open_breakers)
+
+        # fallbacks penalty (lighten slightly if you also planned a real alternative)
+        has_alt_merchant = any("alternative merchant" in s.action.lower() for s in action_steps)
+        success_probability -= 0.02 * len(open_breakers)
+        if added_fallbacks and has_alt_merchant:
+            success_probability += 0.01  # small relief when you have a genuine Plan B
         if key_missing_without_fallback:
-            success_probability -= 0.05  # reduced penalty
-        success_probability = max(0.2, min(0.95, success_probability))
+            success_probability -= 0.03                         # was 0.05
+
+        # Structural quality bonuses
+        # (dependencies used; stakeholders complete; HTN present)
+        depful_steps = sum(1 for s in action_steps if s.dependencies)
+        if depful_steps >= max(2, int(0.25 * len(action_steps))):  # 30% -> 25%
+            success_probability += 0.05  # +0.01 vs before
+
+        stakeholders = self._identify_comprehensive_stakeholders(scenario, tool_results, action_steps)
+        stakeholders, stakeholders_ok = _enforce_required_stakeholders(stakeholders, scenario.scenario_type)
+        success_probability += (0.05 if stakeholders_ok else -0.04)  # from +0.04 -> +0.05
+
+        # Complexity soft-penalty for very long plans
+        if len(action_steps) > 12: 
+            success_probability -= 0.02
+        if len(action_steps) > 16: 
+            success_probability -= 0.02
+
+        # Trim optional steps to keep plans tight
+        action_steps = self._trim_optional_steps(action_steps, max_steps=14)
 
         estimated_duration = self._calculate_duration(
             template["estimated_duration_base"],
@@ -278,28 +378,37 @@ class EnhancedPlanGenerator(PlanGenerator):
             len(action_steps)
         )
 
-        # Stakeholders (ensure required per scenario)
-        stakeholders = self._identify_comprehensive_stakeholders(scenario, tool_results, action_steps)
-        stakeholders, stakeholders_ok = _enforce_required_stakeholders(stakeholders, scenario.scenario_type)
-        if stakeholders_ok:
-            success_probability = min(0.95, success_probability + 0.05)
-        else:
-            success_probability = max(0.2, success_probability - 0.10)
+        # Hard cap unless core evidence exists
+        core = (
+            ["traffic_verified", "route_changed"] if scenario.scenario_type == ScenarioType.TRAFFIC else
+            ["merchant_status_verified", "customer_notified"] if scenario.scenario_type == ScenarioType.MERCHANT else
+            ["merchant_status_verified", "traffic_verified"]
+        )
+        all_core = all(flags.get(k, False) for k in core)
+        hard_cap = 0.90 if not all_core else 0.95
+
+        success_probability = max(0.2, min(0.95, success_probability))
 
         # Contingencies (kept for future surface area)
         contingencies = self.contingency_plans.get(scenario.scenario_type, [])
 
-        # Build ValidatedResolutionPlan (unchanged)
+        # Build ValidatedResolutionPlan with dependency preservation
         from ..agent.models import ValidatedResolutionPlan, ValidatedPlanStep
+        # preserve dependencies by mapping names to indices
+        name_to_idx = {s.action: (i+1) for i,s in enumerate(action_steps)}
         validated_steps = []
-        for i, action_step in enumerate(action_steps, 1):
+        for i, s in enumerate(action_steps, 1):
+            deps = []
+            for d in (s.dependencies or []):
+                if d in name_to_idx and name_to_idx[d] < i:
+                    deps.append(name_to_idx[d])
             validated_steps.append(ValidatedPlanStep(
                 sequence=i,
-                action=action_step.action,
-                responsible_party=action_step.responsible_party,
-                estimated_time=self._parse_timeframe(action_step.timeframe),
-                dependencies=[],
-                success_criteria=action_step.success_criteria
+                action=s.action,
+                responsible_party=s.responsible_party,
+                estimated_time=self._parse_timeframe(s.timeframe),
+                dependencies=deps,
+                success_criteria=s.success_criteria
             ))
 
         plan = ValidatedResolutionPlan(
@@ -311,6 +420,11 @@ class EnhancedPlanGenerator(PlanGenerator):
             created_at=datetime.now()
         )
 
+        logger.debug(
+            "prob_explain flags=%s open_breakers=%s depful=%s stakeholders_ok=%s steps=%s prob=%.3f",
+            flags, open_breakers, depful_steps, stakeholders_ok, len(validated_steps), success_probability
+        )
+        
         logger.info(
             f"🚀 ENHANCED PLAN GENERATOR: Generated {len(validated_steps)} steps, "
             f"success={success_probability:.1%}, breakers={open_breakers or 'none'}"
@@ -338,9 +452,13 @@ class EnhancedPlanGenerator(PlanGenerator):
         generator = step_generators.get(scenario.scenario_type, self._generate_generic_steps)
         action_steps = generator(scenario, tool_results, urgency_mods)
         
-        # Add urgency-specific actions
+        # Add urgency-specific actions (skip duplicates)
         if urgency_mods["additional_actions"]:
+            present = {self._norm(st.action) for st in action_steps}
             for additional_action in urgency_mods["additional_actions"]:
+                canon = self._norm(additional_action)
+                if canon in present:
+                    continue  # skip duplicate
                 action_steps.insert(0, ActionStep(
                     action=additional_action,
                     timeframe="Immediate (0-2 minutes)",
@@ -348,6 +466,7 @@ class EnhancedPlanGenerator(PlanGenerator):
                     specific_instructions=f"Execute {additional_action.lower()} due to {scenario.urgency_level.value} urgency",
                     success_criteria="Action completed and logged"
                 ))
+                present.add(canon)
         
         return action_steps
     
@@ -404,7 +523,7 @@ class EnhancedPlanGenerator(PlanGenerator):
             responsible_party="Customer Service System",
             specific_instructions=f"Send SMS/app notification explaining traffic situation and providing updated ETA",
             success_criteria="Customer notification sent and delivery status updated",
-            dependencies=["Alternative route calculation"]
+            dependencies=["Calculate and implement alternative route"]
         ))
         
         # Step 4: Monitoring
@@ -560,7 +679,7 @@ class EnhancedPlanGenerator(PlanGenerator):
             responsible_party="Operations Team",
             specific_instructions="Assign dedicated agents to each major issue component and coordinate simultaneous resolution efforts",
             success_criteria="All major issues have assigned agents and active resolution",
-            dependencies=["Triage completed"]
+            dependencies=["Triage multiple issues by criticality and impact"]
         ))
         
         # Escalation for critical components
@@ -570,7 +689,8 @@ class EnhancedPlanGenerator(PlanGenerator):
                 timeframe="3-8 minutes",
                 responsible_party="System + Management",
                 specific_instructions="Escalate high-impact issues to senior management and activate enhanced support protocols",
-                success_criteria="Senior support engaged and enhanced protocols active"
+                success_criteria="Senior support engaged and enhanced protocols active",
+                dependencies=["Triage multiple issues by criticality and impact"]
             ))
         
         # Comprehensive customer communication
@@ -589,7 +709,8 @@ class EnhancedPlanGenerator(PlanGenerator):
                 timeframe="10-15 minutes",
                 responsible_party="Customer Service",
                 specific_instructions="Send detailed update explaining the multi-factor situation and comprehensive resolution plan",
-                success_criteria="Customer fully informed of situation and resolution timeline"
+                success_criteria="Customer fully informed of situation and resolution timeline",
+                dependencies=["Coordinate parallel resolution efforts"]
             ))
         
         return steps
@@ -691,9 +812,9 @@ class EnhancedPlanGenerator(PlanGenerator):
             sr = sum(1 for r in tool_results if r.success) / max(1, len(tool_results))
             p += (sr - 0.5) * 0.30  # stronger pull
 
-        # Plan richness
-        if step_count >= 4: p += 0.08
-        if step_count >= 6: p += 0.07
+        # Plan richness (keep small)
+        if step_count >= 4: p += 0.04
+        if step_count >= 6: p += 0.03
 
         # Extra credit for multiple successful tools
         successful_tools = sum(1 for r in tool_results if r.success)
@@ -741,6 +862,91 @@ class EnhancedPlanGenerator(PlanGenerator):
                 stakeholders.add("Medical Logistics Team")
 
         return sorted(stakeholders)
+    
+    def _should_use_htn_planning(self, scenario: ValidatedDisruptionScenario) -> bool:
+        """Determine if scenario is complex enough to warrant HTN planning."""
+        # Use HTN for multi-factor scenarios or high urgency situations
+        return (scenario.scenario_type == ScenarioType.MULTI_FACTOR or 
+                scenario.urgency_level == UrgencyLevel.CRITICAL or
+                len(scenario.entities) >= 4)
+    
+    def _generate_htn_plan(self, scenario: ValidatedDisruptionScenario, 
+                          tool_results: List[ToolResult]) -> List[ActionStep]:
+        """Generate plan using HTN decomposition."""
+        # Update belief state with tool results
+        self._update_belief_state(tool_results)
+        
+        # Determine primary goal based on scenario
+        if scenario.scenario_type == ScenarioType.TRAFFIC:
+            goal = "Resolve traffic delay and minimize customer impact"
+        elif scenario.scenario_type == ScenarioType.MERCHANT:
+            goal = "Resolve merchant capacity issue and coordinate alternatives"
+        elif scenario.scenario_type == ScenarioType.MULTI_FACTOR:
+            goal = "Coordinate multi-factor crisis resolution with priority handling"
+        else:
+            goal = "Resolve delivery dispute through mediation"
+        
+        # Generate HTN plan
+        htn_plan = self.htn_planner.plan(scenario, tool_results)
+        
+        # Convert HTN plan to ActionSteps
+        action_steps = []
+        if htn_plan and htn_plan.tasks:
+            htn_steps = self.htn_planner.to_resolution_steps(htn_plan)
+            for step_dict in htn_steps:
+                action_step = ActionStep(
+                    action=step_dict["action"],
+                    timeframe=step_dict["timeframe"],
+                    responsible_party=step_dict["responsible_party"],
+                    specific_instructions=step_dict["specific_instructions"],
+                    success_criteria=step_dict["success_criteria"],
+                    dependencies=step_dict.get("dependencies", [])
+                )
+                action_steps.append(action_step)
+        
+        logger.info(f"Generated HTN plan with {len(action_steps)} hierarchical steps")
+        return action_steps
+    
+    def _update_belief_state(self, tool_results: List[ToolResult]):
+        """Update belief state based on tool execution results."""
+        for result in tool_results:
+            if result.success:
+                # Update beliefs based on successful tool execution
+                if result.tool_name == "check_traffic":
+                    traffic_condition = result.data.get("traffic_condition", "unknown")
+                    delay = result.data.get("estimated_delay_minutes", 0)
+                    self.belief_state.update_belief("traffic_delay", delay, 0.9, "check_traffic")
+                    self.belief_state.update_belief("traffic_condition", traffic_condition, 0.85, "check_traffic")
+                
+                elif result.tool_name == "get_merchant_status":
+                    prep_time = result.data.get("current_prep_time_minutes", 0)
+                    status = result.data.get("status", "unknown")
+                    self.belief_state.update_belief("merchant_prep_time", prep_time, 0.8, "merchant_status")
+                    self.belief_state.update_belief("merchant_available", status == "operational", 0.85, "merchant_status")
+                
+                elif result.tool_name == "analyze_evidence":
+                    confidence = result.data.get("analysis_confidence", 0.5)
+                    fault = result.data.get("primary_fault", "unknown")
+                    self.belief_state.update_belief("dispute_fault", fault, confidence, "evidence_analysis")
+            else:
+                # Lower confidence for failed tool executions
+                if result.tool_name == "check_traffic":
+                    self.belief_state.update_belief("traffic_delay", "unknown", 0.3, "failed_check")
+    
+    def _get_value_of_information_tools(self, scenario: ValidatedDisruptionScenario) -> List[str]:
+        """Identify tools that would reduce uncertainty most."""
+        uncertain_beliefs = self.belief_state.get_uncertain_beliefs(threshold=0.7)
+        high_value_tools = []
+        
+        for belief in uncertain_beliefs:
+            if "traffic" in belief and "check_traffic" not in high_value_tools:
+                high_value_tools.append("check_traffic")
+            elif "merchant" in belief and "get_merchant_status" not in high_value_tools:
+                high_value_tools.append("get_merchant_status")
+            elif "address" in belief and "validate_address" not in high_value_tools:
+                high_value_tools.append("validate_address")
+        
+        return high_value_tools
     
     def _generate_generic_steps(self, scenario: ValidatedDisruptionScenario,
                               tool_results: List[ToolResult],
@@ -833,6 +1039,73 @@ class EnhancedPlanGenerator(PlanGenerator):
         
         return sorted(list(stakeholders))
     
+    def _norm(self, s: str) -> str:
+        """Quick normalization for duplicate detection."""
+        s = s.strip().lower().replace("  ", " ")
+        mapping = {
+            "activate emergency response protocols": "activate emergency protocols",
+            "coordinate response across all stakeholders": "coordinate across stakeholders",
+            "coordinate parallel resolution efforts": "coordinate across stakeholders",
+            "post-resolution analysis and improvement": "post-resolution analysis",
+            "continuous monitoring and progress tracking": "monitoring and progress",
+            "provide comprehensive customer update": "customer update",
+            "provide customer with merchant status and options": "customer update",
+        }
+        return mapping.get(s, s)
+
+    def _normalize_action_label(self, s: str) -> str:
+        """Normalize action labels to reduce duplicates."""
+        s = s.strip().lower()
+        # normalize common synonyms
+        repl = {
+            "response ": "",  # "emergency response" -> "emergency"
+            "coordinate response across all stakeholders": "coordinate across stakeholders",
+            "coordinate parallel resolution efforts": "coordinate across stakeholders",
+            "activate emergency response protocols": "activate emergency protocols",
+            "post-resolution analysis and improvement": "post-resolution analysis",
+            "continuous monitoring and progress tracking": "monitoring and progress",
+            "provide comprehensive customer update": "customer update",
+            "provide customer with merchant status and options": "customer update",
+        }
+        core = s
+        if core in repl: 
+            core = repl[core]
+        core = core.replace("  ", " ").strip()
+        return core
+    
+    def _dedupe_steps(self, steps: List[ActionStep]) -> List[ActionStep]:
+        """Remove duplicate action steps."""
+        seen = set()
+        out = []
+        for st in steps:
+            key = (self._norm(st.action), st.responsible_party.strip().lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(st)
+        return out
+    
+    def _trim_optional_steps(self, steps: List[ActionStep], max_steps: int = 14) -> List[ActionStep]:
+        """Trim optional steps to keep plans tight."""
+        if len(steps) <= max_steps:
+            return steps
+        keep = []
+        seen = {"coord": False, "monitor": False}
+        for s in steps:
+            low = self._normalize_action_label(s.action)
+            if "coordinate" in low:
+                if seen["coord"]: 
+                    continue
+                seen["coord"] = True
+            if "monitor" in low or "progress" in low:
+                if seen["monitor"]: 
+                    continue
+                seen["monitor"] = True
+            keep.append(s)
+            if len(keep) == max_steps:
+                break
+        return keep
+
     def _parse_timeframe(self, timeframe: str) -> timedelta:
         """Parse timeframe string into timedelta."""
         import re
