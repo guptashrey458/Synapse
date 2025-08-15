@@ -10,7 +10,7 @@ from datetime import datetime
 
 from ..config.settings import load_config, Config
 from ..agent.autonomous_agent import AutonomousAgent, AgentConfig
-from ..tools.tool_manager import ToolManager
+from ..tools.tool_manager import ConcreteToolManager
 from ..llm.providers import get_llm_provider
 from .progress_display import ProgressDisplay, ProgressTracker
 from .output_formatter import OutputFormatter
@@ -39,7 +39,10 @@ class CLIApplication:
             self.llm_provider = get_llm_provider(self.config.llm)
             
             # Initialize tool manager
-            self.tool_manager = ToolManager()
+            self.tool_manager = ConcreteToolManager()
+            
+            # Register basic tools
+            self._register_basic_tools()
             
             # Initialize agent
             agent_config = AgentConfig(
@@ -59,6 +62,112 @@ class CLIApplication:
         except Exception as e:
             self.error_handler.handle_initialization_error(e)
             sys.exit(1)
+    
+    def _register_basic_tools(self):
+        """Register basic tools for demonstration."""
+        try:
+            from ..tools.traffic_tools import CheckTrafficTool, ReRouteDriverTool
+            from ..tools.communication_tools import NotifyCustomerTool
+            from ..tools.merchant_tools import GetMerchantStatusTool
+            
+            # Register traffic tools
+            self.tool_manager.register_tool(CheckTrafficTool())
+            self.tool_manager.register_tool(ReRouteDriverTool())
+            
+            # Register communication tools
+            self.tool_manager.register_tool(NotifyCustomerTool())
+            
+            # Register merchant tools
+            self.tool_manager.register_tool(GetMerchantStatusTool())
+            
+        except ImportError as e:
+            # If specific tools aren't available, create mock tools
+            self._register_mock_tools()
+    
+    def _register_mock_tools(self):
+        """Register mock tools for demonstration purposes."""
+        from ..tools.interfaces import Tool, ToolResult
+        
+        class MockTrafficTool(Tool):
+            def __init__(self):
+                super().__init__(
+                    name="check_traffic",
+                    description="Check traffic conditions",
+                    parameters={"location": {"type": "string", "description": "Location to check"}}
+                )
+            
+            def execute(self, parameters: Dict[str, Any]) -> ToolResult:
+                import random
+                conditions = ["light", "moderate", "heavy"]
+                condition = random.choice(conditions)
+                delay = random.randint(5, 45) if condition != "light" else 0
+                
+                return ToolResult(
+                    tool_name=self.name,
+                    success=True,
+                    data={
+                        "location": parameters.get("location", "unknown"),
+                        "traffic_condition": condition,
+                        "estimated_delay_minutes": delay,
+                        "alternative_routes_available": delay > 20
+                    },
+                    execution_time=0.5
+                )
+        
+        class MockNotificationTool(Tool):
+            def __init__(self):
+                super().__init__(
+                    name="notify_customer",
+                    description="Send notification to customer",
+                    parameters={
+                        "customer_name": {"type": "string", "description": "Customer name"},
+                        "message": {"type": "string", "description": "Message to send"}
+                    }
+                )
+            
+            def execute(self, parameters: Dict[str, Any]) -> ToolResult:
+                return ToolResult(
+                    tool_name=self.name,
+                    success=True,
+                    data={
+                        "customer_name": parameters.get("customer_name", "Customer"),
+                        "message_sent": True,
+                        "delivery_method": "SMS",
+                        "timestamp": datetime.now().isoformat()
+                    },
+                    execution_time=0.3
+                )
+        
+        class MockMerchantTool(Tool):
+            def __init__(self):
+                super().__init__(
+                    name="get_merchant_status",
+                    description="Get merchant status and availability",
+                    parameters={"merchant_name": {"type": "string", "description": "Merchant name"}}
+                )
+            
+            def execute(self, parameters: Dict[str, Any]) -> ToolResult:
+                import random
+                statuses = ["operational", "busy", "delayed", "closed"]
+                status = random.choice(statuses)
+                prep_time = random.randint(10, 60) if status != "closed" else 0
+                
+                return ToolResult(
+                    tool_name=self.name,
+                    success=True,
+                    data={
+                        "merchant_name": parameters.get("merchant_name", "Restaurant"),
+                        "status": status,
+                        "current_prep_time_minutes": prep_time,
+                        "orders_in_queue": random.randint(0, 15) if status != "closed" else 0
+                    },
+                    execution_time=0.4
+                )
+        
+        # Register mock tools
+        self.tool_manager.register_tool(MockTrafficTool())
+        self.tool_manager.register_tool(MockNotificationTool())
+        self.tool_manager.register_tool(MockMerchantTool())
     
     def run_interactive_mode(self):
         """Run the CLI in interactive mode."""

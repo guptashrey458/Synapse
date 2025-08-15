@@ -19,6 +19,14 @@ from ..tools.interfaces import ToolManager
 from ..llm.interfaces import LLMProvider
 from ..config.settings import LLMConfig
 
+# Performance optimization imports (with fallback handling)
+try:
+    from .cache import ToolResultCache, ScenarioCache, PromptCache
+    from .concurrent_executor import ConcurrentToolExecutor, ToolExecution, BatchToolExecutor
+    PERFORMANCE_OPTIMIZATIONS_AVAILABLE = True
+except ImportError:
+    PERFORMANCE_OPTIMIZATIONS_AVAILABLE = False
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +39,12 @@ class AgentConfig:
     enable_context_tracking: bool = True
     enable_state_management: bool = True
     log_reasoning_steps: bool = True
+    # Performance optimization options
+    enable_caching: bool = False
+    concurrent_tools: bool = False
+    optimize_prompts: bool = False
+    batch_tool_calls: bool = False
+    max_concurrent_tools: int = 3
 
 
 @dataclass
@@ -85,6 +99,21 @@ class AutonomousAgent(Agent):
         # Context tracking
         self.context_history: List[Dict[str, Any]] = []
         
+        # Performance optimization components (with fallback handling)
+        if PERFORMANCE_OPTIMIZATIONS_AVAILABLE and config:
+            self.tool_cache = ToolResultCache() if config.enable_caching else None
+            self.scenario_cache = ScenarioCache() if config.enable_caching else None
+            self.prompt_cache = PromptCache() if config.optimize_prompts else None
+            self.concurrent_executor = (ConcurrentToolExecutor(tool_manager, config.max_concurrent_tools) 
+                                      if config.concurrent_tools else None)
+            self.batch_executor = BatchToolExecutor(tool_manager) if config.batch_tool_calls else None
+        else:
+            self.tool_cache = None
+            self.scenario_cache = None
+            self.prompt_cache = None
+            self.concurrent_executor = None
+            self.batch_executor = None
+        
         logger.info("Initialized AutonomousAgent with reasoning engine and tool manager")
     
     def process_scenario(self, scenario: str) -> ResolutionResult:
@@ -100,6 +129,13 @@ class AutonomousAgent(Agent):
         logger.info(f"Processing scenario: {scenario[:100]}...")
         
         try:
+            # Check scenario cache first
+            if self.scenario_cache and self.scenario_cache.should_cache(scenario):
+                cached_result = self.scenario_cache.get(scenario)
+                if cached_result:
+                    logger.info("Returning cached scenario result")
+                    return cached_result
+            
             # Update agent state
             self._update_state("processing", processing_start_time=datetime.now())
             
@@ -133,6 +169,10 @@ class AutonomousAgent(Agent):
             # Track context if enabled
             if self.config.enable_context_tracking:
                 self._track_context(validated_scenario, reasoning_trace, resolution_plan)
+            
+            # Cache the result if caching is enabled
+            if self.scenario_cache and self.scenario_cache.should_cache(scenario):
+                self.scenario_cache.put(scenario, result)
             
             logger.info(f"Successfully processed scenario in "
                        f"{(self.state.processing_end_time - self.state.processing_start_time).total_seconds():.1f}s")

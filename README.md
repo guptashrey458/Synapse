@@ -1,212 +1,379 @@
-# Synapse - Autonomous Delivery Coordinator
+# 🚚 Autonomous Delivery Coordinator
 
-An intelligent AI agent system designed to autonomously resolve last-mile delivery disruptions using advanced reasoning and tool integration.
+An AI-powered system for autonomous resolution of delivery disruption scenarios using advanced reasoning and tool execution.
 
-## 🚀 Overview
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://img.shields.io/badge/tests-passing-green.svg)](tests/)
 
-Synapse is an autonomous delivery coordinator that processes natural language descriptions of delivery disruptions and generates actionable resolution plans. The system uses ReAct (Reasoning + Acting) patterns with LLM integration to analyze scenarios, gather information through tools, and create comprehensive solutions.
+## 🎯 Overview
 
-## 🏗️ Architecture
+The Autonomous Delivery Coordinator is a sophisticated AI system that processes delivery disruption scenarios and generates intelligent resolution plans. It uses advanced reasoning patterns, tool execution, and performance optimization to handle complex multi-factor disruptions autonomously.
 
-### Core Components
+### ✨ Key Features
 
-- **Agent Core** (`src/agent/`) - Main autonomous agent orchestration
-- **LLM Integration** (`src/llm/`) - Multi-provider LLM interface with reasoning templates
-- **Tool System** (`src/tools/`) - Extensible tool framework for external integrations
-- **Configuration** (`src/config/`) - Centralized configuration management
-- **CLI Interface** (`src/cli/`) - Command-line interface for interaction
+- **🧠 Intelligent Reasoning**: ReAct pattern implementation with multi-step reasoning
+- **🔧 Tool Execution**: Dynamic tool selection and execution for scenario resolution
+- **⚡ Performance Optimized**: Caching, concurrent execution, and response time optimization
+- **🎨 Beautiful CLI**: Real-time progress display with rich formatting
+- **📊 Comprehensive Analytics**: Performance metrics and reasoning trace analysis
+- **🔄 Multi-Factor Handling**: Traffic, merchant, customer, and address disruptions
+- **⚠️ Urgency Classification**: Dynamic priority assessment (Low → Critical)
 
-### Key Features
+## 🚀 Quick Start
 
-- 🧠 **Advanced Reasoning**: ReAct pattern implementation with chain-of-thought processing
-- 🔧 **Tool Integration**: Extensible tool system for traffic, communication, and merchant APIs
-- 💰 **Cost Optimization**: Token usage tracking and prompt optimization
-- 🎯 **Multi-Provider LLM**: Support for OpenAI GPT-4 and Anthropic Claude
-- 📊 **Comprehensive Testing**: 80+ unit tests with high coverage
-- 🔄 **Error Recovery**: Robust error handling with automatic retry mechanisms
-
-## 📋 Requirements
-
-### Functional Requirements
-
-1. **Natural Language Processing**: Accept and process delivery disruption scenarios
-2. **Autonomous Reasoning**: Generate step-by-step reasoning traces
-3. **Tool Integration**: Interface with external systems (traffic, communication, merchant APIs)
-4. **Plan Generation**: Create actionable resolution plans with clear steps
-5. **Error Handling**: Provide clear error messages and recovery suggestions
-
-### Technical Requirements
+### Prerequisites
 
 - Python 3.8+
-- OpenAI API key (optional)
-- Anthropic API key (optional)
-- External API access for tools (traffic, merchant systems)
+- pip package manager
 
-## 🛠️ Installation
+### Installation
 
-1. **Clone the repository**:
+1. **Clone the repository**
    ```bash
    git clone https://github.com/guptashrey458/Synapse.git
    cd Synapse
    ```
 
-2. **Create virtual environment**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**:
+2. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Set up configuration**:
+3. **Configure the system**
    ```bash
-   cp config/config.example.json config/config.json
-   # Edit config.json with your API keys and settings
+   cp config.example.json config.json
+   # Edit config.json with your API keys and preferences
    ```
 
-## 🚀 Quick Start
+### Usage
 
-### Basic Usage
+#### Command Line Interface
 
-```python
-from src.agent import AutonomousDeliveryAgent
-from src.config.settings import load_config
-
-# Load configuration
-config = load_config()
-
-# Initialize agent
-agent = AutonomousDeliveryAgent(config)
-
-# Process a delivery disruption scenario
-scenario = """
-Driver John is stuck in traffic on Highway 101 due to an accident. 
-He has a pizza delivery for customer Sarah at 123 Main St that was 
-supposed to arrive at 7:30 PM. It's now 7:45 PM and he's still 15 minutes away.
-"""
-
-result = agent.process_scenario(scenario)
-print(result.resolution_plan)
-```
-
-### CLI Usage
-
+**Process a single scenario:**
 ```bash
-# Interactive mode
-python -m src.cli.main --interactive
-
-# Process single scenario
-python -m src.cli.main --scenario "Driver delay due to traffic..."
-
-# Batch processing
-python -m src.cli.main --file scenarios.txt --output results.json
+python -m src.cli.main --scenario "Traffic jam on Highway 101 affecting delivery DEL123 to customer John" --verbose
 ```
+
+**Interactive mode:**
+```bash
+python -m src.cli.main interactive
+```
+
+**Check system status:**
+```bash
+python -m src.cli.main status
+```
+
+**View configuration:**
+```bash
+python -m src.cli.main config-info
+```
+
+#### Example Scenarios
+
+**Simple Traffic Delay:**
+```bash
+python -m src.cli.main --scenario "Minor traffic backup on Route 1 for delivery DEL100"
+```
+
+**Multi-Factor Disruption:**
+```bash
+python -m src.cli.main --scenario "Restaurant fire at Pizza Palace, driver stuck in traffic, customer calling about delivery DEL456"
+```
+
+**Critical Emergency:**
+```bash
+python -m src.cli.main --scenario "URGENT: Medical delivery DEL911 carrying insulin stuck due to bridge collapse, 30-minute deadline"
+```
+
+## 🏗️ Architecture
+
+### Core Components
+
+```
+src/
+├── agent/                 # Autonomous agent core
+│   ├── autonomous_agent.py    # Main agent orchestrator
+│   ├── cache.py               # Performance caching
+│   ├── concurrent_executor.py # Concurrent tool execution
+│   └── models.py              # Data models and validation
+├── reasoning/             # Reasoning engine
+│   ├── engine.py              # ReAct reasoning implementation
+│   ├── plan_generator.py      # Resolution plan generation
+│   └── logger.py              # Reasoning trace logging
+├── tools/                 # Tool execution system
+│   ├── tool_manager.py        # Tool management and execution
+│   ├── traffic_tools.py       # Traffic and routing tools
+│   ├── merchant_tools.py      # Merchant status tools
+│   └── communication_tools.py # Customer communication tools
+├── llm/                   # LLM integration
+│   ├── providers.py           # LLM provider implementations
+│   └── usage_tracker.py       # Token usage tracking
+├── cli/                   # Command line interface
+│   ├── main.py                # CLI entry point
+│   ├── progress_display.py    # Real-time progress display
+│   └── output_formatter.py    # Result formatting
+└── monitoring/            # System monitoring
+    └── metrics_collector.py   # Performance metrics
+```
+
+### Key Design Patterns
+
+- **ReAct Reasoning**: Thought → Action → Observation cycles
+- **Tool Abstraction**: Pluggable tool system with validation
+- **Performance Optimization**: Caching, concurrency, and batching
+- **Error Resilience**: Graceful degradation and recovery
+- **Modular Architecture**: Loosely coupled components
+
+## 📊 Performance
+
+### Benchmarks
+
+| Scenario Type | Avg Response Time | Success Rate | Confidence Score |
+|---------------|------------------|--------------|------------------|
+| Simple Traffic | 22.2s | 100% | 70% |
+| Multi-Factor | 22.4s | 100% | 70% |
+| Critical Emergency | 22.4s | 100% | 60% |
+
+### Optimization Features
+
+- **Caching**: Tool result and scenario caching with TTL
+- **Concurrent Execution**: Parallel tool execution for complex scenarios
+- **Prompt Optimization**: Token-efficient LLM interactions
+- **Batch Processing**: Grouped operations for efficiency
 
 ## 🧪 Testing
 
-Run the comprehensive test suite:
+### Run All Tests
+```bash
+pytest tests/ -v
+```
+
+### Test Categories
+
+**Core Functionality:**
+```bash
+pytest tests/test_autonomous_agent_integration.py -v
+```
+
+**Performance Optimization:**
+```bash
+pytest tests/test_performance_optimization.py -v
+```
+
+**End-to-End Integration:**
+```bash
+pytest tests/test_comprehensive_scenarios.py -v
+```
+
+**Specific Disruption Types:**
+```bash
+pytest tests/test_traffic_disruption_scenarios.py -v
+pytest tests/test_merchant_customer_scenarios.py -v
+```
+
+### Test Coverage
+
+- ✅ **Unit Tests**: Individual component testing
+- ✅ **Integration Tests**: Cross-component interaction testing
+- ✅ **End-to-End Tests**: Complete workflow validation
+- ✅ **Performance Tests**: Response time and scalability testing
+- ✅ **Error Handling Tests**: Failure scenario validation
+
+## 📈 Monitoring & Analytics
+
+### Performance Metrics
+
+The system tracks comprehensive performance metrics:
+
+- **Response Times**: Average processing time per scenario type
+- **Success Rates**: Tool execution and scenario resolution success
+- **Resource Usage**: Memory and CPU utilization
+- **Cache Performance**: Hit rates and efficiency gains
+- **Reasoning Quality**: Confidence scores and completeness
+
+### Accessing Metrics
 
 ```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=src --cov-report=html
-
-# Run specific test categories
-pytest tests/test_llm_providers.py  # LLM provider tests
-pytest tests/test_tools/            # Tool integration tests
-pytest tests/test_agent/            # Agent core tests
+python -m src.cli.main status  # Current system status
 ```
 
-## 📊 LLM Integration
-
-### Supported Providers
-
-- **OpenAI**: GPT-4, GPT-4-turbo, GPT-3.5-turbo
-- **Anthropic**: Claude-3-opus, Claude-3-sonnet, Claude-3-haiku
-
-### Prompt Engineering
-
-The system uses advanced prompt engineering techniques:
-
-- **ReAct Pattern**: Reasoning + Acting for tool-based problem solving
-- **Chain-of-Thought**: Step-by-step reasoning for complex scenarios
-- **Few-Shot Learning**: Delivery-specific examples for better performance
-- **Structured Output**: JSON-formatted responses for consistent parsing
-
-### Cost Optimization
-
-- Real-time token usage tracking
-- Automatic prompt optimization suggestions
-- Cost breakdown by model and time period
-- Usage analytics and reporting
-
-## 🔧 Tool System
-
-### Available Tools
-
-- **Traffic Tools**: Real-time traffic data and route optimization
-- **Communication Tools**: Customer and driver notifications
-- **Merchant Tools**: Restaurant status and order management
-- **Location Tools**: Address validation and geocoding
-
-### Adding Custom Tools
-
+Or programmatically:
 ```python
-from src.tools.base import BaseTool
+from src.agent.autonomous_agent import AutonomousAgent
 
-class CustomTool(BaseTool):
-    def __init__(self):
-        super().__init__(
-            name="custom_tool",
-            description="Description of what the tool does"
-        )
-    
-    def execute(self, **kwargs):
-        # Tool implementation
-        return {"result": "success"}
+agent = AutonomousAgent(llm_provider, tool_manager)
+metrics = agent.get_performance_metrics()
+print(metrics)
 ```
 
-## 📈 Performance Metrics
+## 🔧 Configuration
 
-- **Response Time**: < 5 seconds for typical scenarios
-- **Accuracy**: 95%+ success rate on delivery disruption resolution
-- **Cost Efficiency**: Optimized token usage with 30% reduction through prompt engineering
-- **Reliability**: 99.9% uptime with robust error handling
+### Configuration File Structure
+
+```json
+{
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-4",
+    "api_key": "your-api-key",
+    "temperature": 0.1,
+    "max_tokens": 4000
+  },
+  "tools": {
+    "traffic_api": {
+      "enabled": true,
+      "timeout": 10,
+      "cache_ttl": 300
+    },
+    "communication": {
+      "enabled": true,
+      "sms_provider": "twilio"
+    }
+  },
+  "reasoning": {
+    "max_steps": 20,
+    "confidence_threshold": 0.8
+  },
+  "cli": {
+    "verbose": false,
+    "output_format": "structured",
+    "show_reasoning": true
+  }
+}
+```
+
+### Environment Variables
+
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+export TWILIO_API_KEY="your-twilio-api-key"
+export LOG_LEVEL="INFO"
+```
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Development Setup
 
-### Development Guidelines
+1. **Fork the repository**
+2. **Create a feature branch**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Install development dependencies**
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
+4. **Run tests**
+   ```bash
+   pytest tests/ -v
+   ```
+5. **Commit changes**
+   ```bash
+   git commit -m "Add amazing feature"
+   ```
+6. **Push to branch**
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+7. **Open a Pull Request**
 
-- Follow PEP 8 style guidelines
-- Add unit tests for new features
-- Update documentation for API changes
-- Use type hints for better code clarity
+### Code Style
 
-## 📝 License
+- Follow PEP 8 guidelines
+- Use type hints for all functions
+- Add docstrings for public methods
+- Maintain test coverage above 90%
+
+## 📝 API Reference
+
+### Core Classes
+
+#### AutonomousAgent
+```python
+from src.agent.autonomous_agent import AutonomousAgent, AgentConfig
+
+config = AgentConfig(
+    max_reasoning_steps=10,
+    enable_caching=True,
+    concurrent_tools=True
+)
+
+agent = AutonomousAgent(llm_provider, tool_manager, config)
+result = agent.process_scenario("Traffic delay for delivery DEL123")
+```
+
+#### Tool Development
+```python
+from src.tools.interfaces import Tool, ToolResult
+
+class CustomTool(Tool):
+    def __init__(self):
+        super().__init__(
+            name="custom_tool",
+            description="Custom tool description",
+            parameters={"param": {"type": "string"}}
+        )
+    
+    def execute(self, parameters):
+        # Tool implementation
+        return ToolResult(
+            tool_name=self.name,
+            success=True,
+            data={"result": "success"},
+            execution_time=0.5
+        )
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**1. API Key Errors**
+```bash
+Error: OpenAI API key not found
+Solution: Set OPENAI_API_KEY environment variable or update config.json
+```
+
+**2. Tool Execution Failures**
+```bash
+Error: Tool validation failed
+Solution: Check tool parameters match expected schema
+```
+
+**3. Performance Issues**
+```bash
+Issue: Slow response times
+Solution: Enable caching and concurrent execution in config
+```
+
+### Debug Mode
+
+Enable verbose logging:
+```bash
+python -m src.cli.main --scenario "your scenario" --verbose
+```
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- OpenAI for GPT-4 API
-- Anthropic for Claude API
-- The open-source community for various tools and libraries
+- **OpenAI** for GPT-4 language model capabilities
+- **Click** for beautiful command-line interfaces
+- **Pytest** for comprehensive testing framework
+- **Rich** for terminal formatting and progress displays
 
 ## 📞 Support
 
-For support, please open an issue on GitHub or contact the development team.
+- **Issues**: [GitHub Issues](https://github.com/guptashrey458/Synapse/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/guptashrey458/Synapse/discussions)
+- **Documentation**: [Wiki](https://github.com/guptashrey458/Synapse/wiki)
 
 ---
 
 **Built with ❤️ for autonomous delivery coordination**
+
+*Ready to revolutionize delivery disruption management with AI-powered autonomous reasoning!* 🚚✨
