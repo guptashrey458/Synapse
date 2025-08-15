@@ -335,5 +335,14 @@ def interactive(ctx):
     app.run_interactive_mode()
 
 
+@main.command()
+@click.pass_context
+def scenario_tester(ctx):
+    """Run interactive scenario tester."""
+    from ..scenarios.interactive_input import InteractiveScenarioTester
+    tester = InteractiveScenarioTester()
+    tester.run_interactive_session()
+
+
 if __name__ == '__main__':
     main()

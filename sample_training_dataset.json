@@ -1,0 +1,146 @@
+[
+  {
+    "scenario_text": "Major accident on Interstate 80 has completely blocked traffic. Driver Carlos is stuck with delivery ORD588 for customer David at 258 Ash Court. Estimated delay is 2 hours.",
+    "category": "traffic",
+    "urgency": "high",
+    "complexity_score": 7,
+    "expected_tools": [
+      "check_traffic",
+      "re_route_driver",
+      "notify_customer",
+      "escalate_to_support"
+    ],
+    "expected_actions": [
+      "find_emergency_route",
+      "proactive_communication",
+      "consider_alternative_delivery"
+    ],
+    "variables": {
+      "highway": "Interstate 80",
+      "delay_hours": "2",
+      "delivery_id": "ORD588",
+      "customer_name": "David",
+      "driver_name": "Carlos",
+      "address": "258 Ash Court",
+      "restaurant": "Papa John's",
+      "phone": "(555) 890-1234"
+    },
+    "template_id": 1,
+    "generated_at": "2025-08-15T13:45:26.737498"
+  },
+  {
+    "scenario_text": "Major accident on Highway 95 has completely blocked traffic. Driver David is stuck with delivery TXN989 for customer David at 456 Oak Avenue. Estimated delay is 3 hours.",
+    "category": "traffic",
+    "urgency": "high",
+    "complexity_score": 7,
+    "expected_tools": [
+      "check_traffic",
+      "re_route_driver",
+      "notify_customer",
+      "escalate_to_support"
+    ],
+    "expected_actions": [
+      "find_emergency_route",
+      "proactive_communication",
+      "consider_alternative_delivery"
+    ],
+    "variables": {
+      "highway": "Highway 95",
+      "delay_hours": "3",
+      "delivery_id": "TXN989",
+      "customer_name": "David",
+      "driver_name": "David",
+      "address": "456 Oak Avenue",
+      "restaurant": "Domino's",
+      "phone": "(555) 123-4567"
+    },
+    "template_id": 1,
+    "generated_at": "2025-08-15T13:45:26.737504"
+  },
+  {
+    "scenario_text": "Restaurant Burger Palace is running 30 minutes behind schedule due to kitchen equipment failure. Delivery TXN465 for customer Maria is affected.",
+    "category": "merchant",
+    "urgency": "medium",
+    "complexity_score": 4,
+    "expected_tools": [
+      "get_merchant_status",
+      "notify_customer",
+      "get_nearby_merchants"
+    ],
+    "expected_actions": [
+      "assess_merchant_capacity",
+      "manage_expectations",
+      "find_alternatives"
+    ],
+    "variables": {
+      "issue": "kitchen equipment failure",
+      "delay_minutes": "30",
+      "delivery_id": "TXN465",
+      "customer_name": "Maria",
+      "driver_name": "Carlos",
+      "address": "123 Main Street",
+      "restaurant": "Burger Palace",
+      "phone": "(555) 234-5678"
+    },
+    "template_id": 2,
+    "generated_at": "2025-08-15T13:45:26.737511"
+  },
+  {
+    "scenario_text": "EMERGENCY: Pizza Hut has been evacuated due to health department closure. 5 active deliveries are affected including DEL774. Customers are calling asking about their orders.",
+    "category": "merchant",
+    "urgency": "critical",
+    "complexity_score": 9,
+    "expected_tools": [
+      "get_merchant_status",
+      "get_nearby_merchants",
+      "notify_customer",
+      "escalate_to_support"
+    ],
+    "expected_actions": [
+      "emergency_response",
+      "mass_communication",
+      "coordinate_alternatives"
+    ],
+    "variables": {
+      "emergency_type": "health department closure",
+      "affected_orders": "5",
+      "delivery_id": "DEL774",
+      "customer_name": "Jennifer",
+      "driver_name": "Frank",
+      "address": "123 Main Street",
+      "restaurant": "Pizza Hut",
+      "phone": "(555) 345-6789"
+    },
+    "template_id": 3,
+    "generated_at": "2025-08-15T13:45:26.737517"
+  },
+  {
+    "scenario_text": "Customer Maria at 789 Pine Road is complaining about damaged packaging for delivery DEL633. They are demanding partial refund.",
+    "category": "customer",
+    "urgency": "medium",
+    "complexity_score": 5,
+    "expected_tools": [
+      "collect_evidence",
+      "notify_customer",
+      "issue_instant_refund",
+      "coordinate_replacement"
+    ],
+    "expected_actions": [
+      "investigate_complaint",
+      "provide_resolution",
+      "prevent_escalation"
+    ],
+    "variables": {
+      "complaint_type": "damaged packaging",
+      "resolution_demand": "partial refund",
+      "delivery_id": "DEL633",
+      "customer_name": "Maria",
+      "driver_name": "Mike",
+      "address": "789 Pine Road",
+      "restaurant": "KFC",
+      "phone": "(555) 123-4567"
+    },
+    "template_id": 4,
+    "generated_at": "2025-08-15T13:45:26.737523"
+  }
+]

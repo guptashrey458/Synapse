@@ -89,9 +89,16 @@ class AutonomousAgent(Agent):
             tool_manager=tool_manager
         )
         
-        # Initialize entity extractor and scenario analyzer
+        # Initialize entity extractor and enhanced scenario analyzer
         self.entity_extractor = EntityExtractor()
-        self.scenario_analyzer = ScenarioAnalyzer()
+        try:
+            from .enhanced_scenario_analyzer import EnhancedScenarioAnalyzer
+            self.scenario_analyzer = EnhancedScenarioAnalyzer()
+            logger.info("Using EnhancedScenarioAnalyzer")
+        except ImportError:
+            from .scenario_analyzer import ScenarioAnalyzer
+            self.scenario_analyzer = ScenarioAnalyzer()
+            logger.info("Using standard ScenarioAnalyzer")
         
         # Agent state management
         self.state = AgentState()

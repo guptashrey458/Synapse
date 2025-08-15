@@ -213,32 +213,63 @@ class EntityExtractor:
                         ))
                         break
         
-        # Extract person names (simple heuristic - capitalized words)
+        # Extract person names (improved heuristic)
         words = text.split()
-        found_names = set()  # Track found names to avoid duplicates
-        exclude_words = {'the', 'and', 'or', 'but', 'street', 'avenue', 'road', 'drive', 'palace', 'main', 'delivery', 'driver'}
+        found_names = set()
+        exclude_words = {
+            'the', 'and', 'or', 'but', 'street', 'avenue', 'road', 'drive', 'palace', 'main', 
+            'delivery', 'driver', 'urgent', 'emergency', 'critical', 'high', 'medium', 'low',
+            'customer', 'merchant', 'restaurant', 'traffic', 'route', 'order', 'food'
+        }
+        
+        # Common first names for better detection
+        common_names = {
+            'mike', 'sarah', 'john', 'jane', 'tom', 'mary', 'david', 'lisa', 'chris', 'anna',
+            'james', 'jennifer', 'robert', 'linda', 'michael', 'elizabeth', 'william', 'barbara',
+            'richard', 'susan', 'joseph', 'jessica', 'thomas', 'karen', 'charles', 'nancy'
+        }
         
         for i, word in enumerate(words):
-            if (word[0].isupper() and len(word) > 1 and 
-                word.lower() not in exclude_words):
-                # Check if it's likely a person name (not already captured as other entity types)
-                word_already_used = any(word.lower() in entity.text.lower() for entity in entities)
-                if not word_already_used and word.lower() not in found_names:
-                    # Look for common name patterns (First Last)
-                    if (i + 1 < len(words) and 
-                        words[i + 1][0].isupper() and 
-                        words[i + 1].lower() not in exclude_words and
-                        len(words[i + 1]) > 1):
-                        full_name = f"{word} {words[i + 1]}"
-                        # Don't add if this combination is already part of another entity
-                        if not any(full_name.lower() in entity.text.lower() for entity in entities):
-                            found_names.add(full_name.lower())
-                            entities.append(ValidatedEntity(
-                                text=full_name,
-                                entity_type=EntityType.PERSON,
-                                confidence=0.5,
-                                normalized_value=full_name
-                            ))
+            # Clean the word of punctuation
+            clean_word = re.sub(r'[^\w]', '', word)
+            
+            if (len(clean_word) > 1 and clean_word[0].isupper() and 
+                clean_word.lower() not in exclude_words):
+                
+                # Check if it's already part of another entity
+                word_already_used = any(clean_word.lower() in entity.text.lower() for entity in entities)
+                if word_already_used or clean_word.lower() in found_names:
+                    continue
+                
+                # Higher confidence if it's a common name
+                confidence = 0.7 if clean_word.lower() in common_names else 0.4
+                
+                # Look for full name pattern (First Last)
+                if (i + 1 < len(words) and len(words) > i + 1):
+                    next_word = re.sub(r'[^\w]', '', words[i + 1])
+                    if (len(next_word) > 1 and next_word[0].isupper() and 
+                        next_word.lower() not in exclude_words and
+                        not any(next_word.lower() in entity.text.lower() for entity in entities)):
+                        
+                        full_name = f"{clean_word} {next_word}"
+                        found_names.add(full_name.lower())
+                        entities.append(ValidatedEntity(
+                            text=full_name,
+                            entity_type=EntityType.PERSON,
+                            confidence=confidence + 0.1,
+                            normalized_value=full_name
+                        ))
+                        continue
+                
+                # Single name if it looks like a person name
+                if confidence > 0.5:  # Only add single names if high confidence
+                    found_names.add(clean_word.lower())
+                    entities.append(ValidatedEntity(
+                        text=clean_word,
+                        entity_type=EntityType.PERSON,
+                        confidence=confidence,
+                        normalized_value=clean_word
+                    ))
         
         return entities
     

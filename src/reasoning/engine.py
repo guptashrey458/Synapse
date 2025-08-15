@@ -55,7 +55,18 @@ class ReActReasoningEngine(ReasoningEngine):
         self.tool_manager = tool_manager
         self.config = config or ReasoningConfig()
         self.template_manager = PromptTemplateManager()
-        self.plan_generator = PlanGenerator()
+        
+        # Try to use enhanced plan generator, fallback to standard
+        try:
+            from .enhanced_plan_generator import EnhancedPlanGenerator
+            self.plan_generator = EnhancedPlanGenerator()
+            logger.info("🚀 Using EnhancedPlanGenerator")
+            print("🚀 DEBUG: Enhanced plan generator loaded successfully")
+        except ImportError as e:
+            from .plan_generator import PlanGenerator
+            self.plan_generator = PlanGenerator()
+            logger.info("⚠️ Using standard PlanGenerator")
+            print(f"⚠️ DEBUG: Enhanced plan generator failed to load: {e}")
         
         # Circuit breaker for infinite loops
         self._consecutive_failures = 0
